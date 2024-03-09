@@ -1,0 +1,11 @@
+{
+    "display_name": "Clickable Generated Inputs",
+    "loading_order": 1,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "author": "horsearmor",
+    "version": "0.1.0",
+    "homePage": "https://github.com/horse-armor/st-clickable-inputs",
+    "auto_update": true
+}
