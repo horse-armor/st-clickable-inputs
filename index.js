@@ -1,6 +1,7 @@
 import { Generate, extension_prompt_types, sendMessageAsUser, setExtensionPrompt } from "../../../../script.js";
 
-const INPUT_SCRIPT_INSTRUCTIONS = `**INPUTS**: Always use the \`<button>\` tag for buttons. Keep related inputs in the same div. Use \`<label>\` for text that's related to the input. Always use the \`for\` attribute on labels to specify which input the label is for. Example:
+const INPUT_SCRIPT_INSTRUCTIONS = `<instructions>
+**INPUTS**: Always use the \`<button>\` tag for buttons. Keep related inputs in the same div. Use \`<label>\` for text that's related to the input. Always use the \`for\` attribute on labels to specify which input the label is for. Example:
 \`\`\`
 <input type="radio" name="l" id="radio1">
 <label for="radio1">Lorem ipsum</label>
@@ -9,7 +10,8 @@ If there is supposed to be a button to apply changes, add the \`data-submit\` cl
 \`\`\`
 <input type="checkbox">Some setting</input>
 <button class="data-submit">Press me to submit changes.</button>
-\`\`\``;
+\`\`\`
+</instructions>`;
 
 const ELEMENT_CLICKABLE_ATTRIBUTE = "data-made-clickable";
 const ELEMENT_LLM_SUBMIT_CLASS = "custom-data-submit"; // "custom-" prefix is added by ST sanitisation
@@ -34,13 +36,13 @@ function getDivJustBeforeMesText(element) {
 
 /**
  * 
- * @param {HTMLInputElement | HTMLSelectElement} input 
+ * @param {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement} input 
  * @returns 
  */
 function inputToString(input) {
     let modifier = "";
     if (input.getAttribute("type") === "range")
-        modifier = "/100";
+        modifier = "/" + (input.getAttribute("max") || "100");
 
     let value = input.value;
     if (input.tagName === "SELECT")
@@ -50,7 +52,6 @@ function inputToString(input) {
     const labelForInput = findLabelForInput(input, getDivJustBeforeMesText(input));
     if (!labelForInput) return "";
 
-    // @ts-ignore
     return `${labelForInput}${labelForInput.endsWith(":") ? "" : ":"} ${value}${modifier}\n`;
 }
 
@@ -63,8 +64,7 @@ function extractDataInputs(parent) {
  
     for (const child of parent.children) {
         jQuery(child).find('*').each((i, obj) => {
-            if (obj.tagName === "INPUT" || obj.tagName === "SELECT")
-                // @ts-ignore
+            if (obj.tagName === "INPUT" || obj.tagName === "SELECT" || obj.tagName == "TEXTAREA")
                 output += inputToString(obj);
         });
     }
@@ -115,7 +115,7 @@ async function clickEvent(event) {
     console.log("clicked on", element.innerText);
 
     let output = element.classList.contains(ELEMENT_LLM_SUBMIT_CLASS) 
-        ? extractDataInputs(getParentDivThatHasThisDiv(element))
+        ? extractDataInputs(getDivJustBeforeMesText(element))
         : ""; // Only add other fields if it's a submit action
     output += element.innerText;
 
@@ -155,13 +155,16 @@ async function inputChangeEvent(event) {
  */
 function makeClickable(obj) {
     if (obj instanceof HTMLButtonElement) obj.addEventListener("click", clickEvent);
-    else if (obj instanceof HTMLInputElement || obj instanceof HTMLSelectElement) obj.addEventListener("change", inputChangeEvent);
+    else if (obj instanceof HTMLInputElement && obj.getAttribute("type") !== "text" || obj instanceof HTMLSelectElement) obj.addEventListener("change", inputChangeEvent);
+    else if (obj instanceof HTMLTextAreaElement || obj instanceof HTMLInputElement && obj.getAttribute("type") === "text") obj.addEventListener("keypress", (e) => {
+        if (e.code === "Enter") inputChangeEvent(e);
+    });
 
     obj.setAttribute(ELEMENT_CLICKABLE_ATTRIBUTE, "true");
 }
 
 function processMessageDiv(i, obj) {
-    jQuery(obj).find('button, input, select').each((i, obj) => {
+    jQuery(obj).find('button, input, select, textarea').each((i, obj) => {
         if (!obj.getAttribute(ELEMENT_CLICKABLE_ATTRIBUTE)) makeClickable(obj);
     });
 }
