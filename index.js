@@ -40,6 +40,8 @@ function getDivJustBeforeMesText(element) {
  * @returns 
  */
 function inputToString(input) {
+    if (["radio"].includes(input.getAttribute("type")) && !input.checked) return "";
+
     let modifier = "";
     if (input.getAttribute("type") === "range")
         modifier = "/" + (input.getAttribute("max") || "100");
@@ -48,6 +50,8 @@ function inputToString(input) {
     if (input.tagName === "SELECT")
         // @ts-ignore
         value = input.options[input.selectedIndex].text;
+    if (input.getAttribute("type") === "checkbox")
+        value = input.checked ? "on" : "off";
 
     const labelForInput = findLabelForInput(input, getDivJustBeforeMesText(input));
     if (!labelForInput) return "";
@@ -63,9 +67,8 @@ function extractDataInputs(parent) {
     let output = "";
  
     for (const child of parent.children) {
-        jQuery(child).find('*').each((i, obj) => {
-            if (obj.tagName === "INPUT" || obj.tagName === "SELECT" || obj.tagName == "TEXTAREA")
-                output += inputToString(obj);
+        jQuery(child).find('input, select, textarea').each((i, obj) => {
+            output += inputToString(obj);
         });
     }
 
@@ -110,14 +113,14 @@ async function clickEvent(event) {
      * @type {HTMLElement}
      */
     // @ts-ignore
-    const element = event.target;
+    const element = event.target.closest("button") || event.target;
 
-    console.log("clicked on", element.innerText);
+    console.log("clicked on", element.textContent);
 
     let output = element.classList.contains(ELEMENT_LLM_SUBMIT_CLASS) 
         ? extractDataInputs(getDivJustBeforeMesText(element))
         : ""; // Only add other fields if it's a submit action
-    output += element.innerText;
+    output += element.textContent;
 
     await sendMessageAsUser(output, "");
     await Generate("normal");
@@ -163,19 +166,15 @@ function makeClickable(obj) {
     obj.setAttribute(ELEMENT_CLICKABLE_ATTRIBUTE, "true");
 }
 
-function processMessageDiv(i, obj) {
+function processMessageTextBlock(i, obj) {
     jQuery(obj).find('button, input, select, textarea').each((i, obj) => {
         if (!obj.getAttribute(ELEMENT_CLICKABLE_ATTRIBUTE)) makeClickable(obj);
     });
 }
 
-function processMessageTextBlock(i, obj) {
-    jQuery(obj).find('div').each(processMessageDiv);
-}
-
 function updateInputs() {
     jQuery(".mes_text").each(processMessageTextBlock);
-    setExtensionPrompt("CLICKABLE_GENEREATED_INPUTS", INPUT_SCRIPT_INSTRUCTIONS, extension_prompt_types.IN_CHAT, 0);
+    setExtensionPrompt("CLICKABLE_GENEREATED_INPUTS", INPUT_SCRIPT_INSTRUCTIONS, extension_prompt_types.IN_PROMPT, 1);
 }
 
 jQuery(() => {
