@@ -1,0 +1,38 @@
+<!-- TODO: This needs proper i18n -->
+<div class="clickable-inputs-settings">
+	<div class="inline-drawer">
+		<div class="inline-drawer-toggle inline-drawer-header">
+			<b data-i18n="Clickable Inputs">Clickable Inputs</b>
+			<div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+		</div>
+
+		<div class="inline-drawer-content">
+			<label class="flex-container">
+				<input type="checkbox" id="clickable_inputs_enabled" /><span data-i18n="Enable">Enable</span>
+			</label>
+			<label class="flex-container">
+				<input type="checkbox" id="clickable_inputs_prompt_enabled" /><span
+					data-i18n="Append instructions to prompt"
+					>Append instructions to prompt</span
+				>
+			</label>
+			<div class="flex-container justifyspacebetween alignitemscenter">
+				<span>Instructions:</span>
+				<div
+					title="Restore default prompt"
+					class="menu_button flex1 margin0 interactable"
+					id="clickable_inputs_prompt_restore"
+					tabindex="0"
+				>
+					<span>Restore Default</span>
+				</div>
+			</div>
+			<textarea
+				placeholder="Prompt"
+				rows="6"
+				class="text_pole textarea_compact"
+				id="clickable_inputs_prompt"
+			></textarea>
+		</div>
+	</div>
+</div>

@@ -4,6 +4,7 @@
     "requires": [],
     "optional": [],
     "js": "index.js",
+    "css": "style.css",
     "author": "horsearmor",
     "version": "0.1.2",
     "homePage": "https://github.com/horse-armor/st-clickable-inputs",
