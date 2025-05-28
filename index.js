@@ -1,20 +1,25 @@
-import { Generate, extension_prompt_types, sendMessageAsUser, setExtensionPrompt } from "../../../../script.js";
+import { Generate, extension_prompt_types, sendMessageAsUser, setExtensionPrompt, saveSettingsDebounced } from "../../../../script.js";
+import { renderExtensionTemplateAsync, extension_settings } from '../../../extensions.js';
 
-const INPUT_SCRIPT_INSTRUCTIONS = `<instructions>
+const DEFAULT_INSTRUCTIONS = `<instructions>
 **INPUTS**: Always use the \`<button>\` tag for buttons. Keep related inputs in the same div. Use \`<label>\` for text that's related to the input. Always use the \`for\` attribute on labels to specify which input the label is for. Example:
 \`\`\`
 <input type="radio" name="l" id="radio1">
 <label for="radio1">Lorem ipsum</label>
 \`\`\`
-If there is supposed to be a button to apply changes, add the \`data-submit\` class to it. Example:
+If there is supposed to be a button to apply changes, add the \`data-submit\` attribute to it. Example:
 \`\`\`
 <input type="checkbox">Some setting</input>
-<button class="data-submit">Press me to submit changes.</button>
+<button data-submit>Press me to submit changes.</button>
+\`\`\`
+You may override the text displayed on the button with the text in the \`data-title\` attribute. Example:
+\`\`\`
+<button data-title="User sees this text">This text will be sent.</button>
 \`\`\`
 </instructions>`;
 
 const ELEMENT_CLICKABLE_ATTRIBUTE = "data-made-clickable";
-const ELEMENT_LLM_SUBMIT_CLASS = "custom-data-submit"; // "custom-" prefix is added by ST sanitisation
+const ELEMENT_LLM_SUBMIT_ATTRIBUTE = "data-submit";
 
 function findLabelForInput(input, parentDiv) {
     if (!input.id) return "";
@@ -113,11 +118,12 @@ async function clickEvent(event) {
      * @type {HTMLElement}
      */
     // @ts-ignore
+	// Could use event.currentTarget here
     const element = event.target.closest("button") || event.target;
 
     console.log("clicked on", element.textContent);
 
-    let output = element.classList.contains(ELEMENT_LLM_SUBMIT_CLASS) 
+    let output = element.hasAttribute(ELEMENT_LLM_SUBMIT_ATTRIBUTE)
         ? extractDataInputs(getDivJustBeforeMesText(element))
         : ""; // Only add other fields if it's a submit action
     output += element.textContent;
@@ -144,7 +150,7 @@ async function inputChangeEvent(event) {
 
     const logicalParent = getDivJustBeforeMesText(element);
     if (getChildrenOfTagName(logicalParent, 'BUTTON', true)
-        .filter(b => b.classList.contains(ELEMENT_LLM_SUBMIT_CLASS))
+        .filter(b => b.hasAttribute(ELEMENT_LLM_SUBMIT_ATTRIBUTE))
         .length)
         return; // Have submit button, nothing to do
 
@@ -173,12 +179,99 @@ function processMessageTextBlock(i, obj) {
 }
 
 function updateInputs() {
-    jQuery(".mes_text").each(processMessageTextBlock);
-    setExtensionPrompt("CLICKABLE_GENEREATED_INPUTS", INPUT_SCRIPT_INSTRUCTIONS, extension_prompt_types.IN_PROMPT, 1);
+    if (!isEnabled()) return;
+
+	jQuery("#chat .mes_text:not(:has(.edit_textarea))").each(processMessageTextBlock);
+    
+	if(shouldAppendPrompt()) {
+        setExtensionPrompt("CLICKABLE_GENERATED_INPUTS", prompt(), extension_prompt_types.IN_PROMPT, 1);
+	} else {
+		// Other extensions do it this way
+        setExtensionPrompt("CLICKABLE_GENERATED_INPUTS", "");
+	}
 }
 
+async function initSettings() {
+	// Stupid, yeah
+	let _isEnabled = isEnabled();
+	let _shouldAppendPrompt = shouldAppendPrompt();
+	let _prompt = prompt();
+
+	if(!("clickableInputs" in extension_settings)) {
+		// Initialise
+		extension_settings.clickableInputs = {
+			enabled: _isEnabled,
+			appendPrompt: _shouldAppendPrompt,
+			prompt: _prompt,
+		};
+	}
+
+	// Render settings collapsible
+	const html = await renderExtensionTemplateAsync("third-party/st-clickable-inputs", "settings");
+	jQuery(document.getElementById("extensions_settings")).append(html)
+
+	// Sync settings
+	jQuery("#clickable_inputs_enabled").prop("checked", _isEnabled);
+	jQuery("#clickable_inputs_prompt_enabled").prop("checked", _shouldAppendPrompt);
+	jQuery("#clickable_inputs_prompt").val(_prompt);
+
+	// Disable elements if necessary
+	jQuery("#clickable_inputs_prompt_enabled").prop("disabled", !_isEnabled);
+	jQuery("#clickable_inputs_prompt").prop("disabled", !_isEnabled || !_shouldAppendPrompt);
+
+	// Add event listeners
+	jQuery("#clickable_inputs_enabled").on("change", () => {
+		const checked = jQuery("#clickable_inputs_enabled").is(":checked");
+
+		extension_settings.clickableInputs.enabled = checked;
+		jQuery("#clickable_inputs_prompt_enabled").prop("disabled", !checked);
+		jQuery("#clickable_inputs_prompt").prop("disabled", !checked);
+
+		updateInputs();
+		saveSettingsDebounced();
+	});
+
+	jQuery("#clickable_inputs_prompt_enabled").on("change", () => {
+		extension_settings.clickableInputs.appendPrompt = jQuery("#clickable_inputs_prompt_enabled").is(":checked");
+
+		updateInputs();
+		saveSettingsDebounced();
+	});
+
+	jQuery("#clickable_inputs_prompt").on("input", () => {
+		extension_settings.clickableInputs.prompt = jQuery("#clickable_inputs_prompt").val();
+
+		updateInputs();
+		saveSettingsDebounced();
+	});
+
+	jQuery("#clickable_inputs_prompt_restore").on("click", () => {
+		extension_settings.clickableInputs.prompt = DEFAULT_INSTRUCTIONS;
+		jQuery("#clickable_inputs_prompt").val(DEFAULT_INSTRUCTIONS);
+
+		updateInputs();
+		saveSettingsDebounced();
+	});
+}
+
+// Getters
+function isEnabled() {
+	return extension_settings.clickableInputs?.enabled ?? true;
+}
+
+function shouldAppendPrompt() {
+	return extension_settings.clickableInputs?.appendPrompt ?? true;
+}
+
+function prompt() {
+	return extension_settings.clickableInputs?.prompt ?? DEFAULT_INSTRUCTIONS;
+}
+
+// Main
 jQuery(() => {
     // TODO use events (currently unstable for some reason)
+	initSettings()
+
     setInterval(updateInputs, 1000);
     updateInputs();
 });

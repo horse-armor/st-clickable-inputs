@@ -1,0 +1,8 @@
+.mes_text button[data-title] {
+	font-size: 0;
+}
+
+.mes_text button[data-title]::after {
+	font-size: var(--mainFontSize);
+	content: attr(data-title);
+}
