@@ -6,7 +6,7 @@
     "js": "index.js",
     "css": "style.css",
     "author": "horsearmor",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "homePage": "https://github.com/horse-armor/st-clickable-inputs",
     "auto_update": true
 }
