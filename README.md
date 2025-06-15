@@ -18,7 +18,8 @@ A SillyTavern installation that can install extensions (tested on 1.11.5).
 
 ## Support and Contributions
 
-Here be dragons...
+Thanks to:
+khouraisan
 
 ## License
 
